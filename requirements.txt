@@ -1,4 +1,0 @@
-pyradiomics
-totalsegmentator
-pandas
-openpyxl
