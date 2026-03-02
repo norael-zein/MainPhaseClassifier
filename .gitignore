@@ -1,0 +1,20 @@
+.venv311/
+venv311/
+__pycache__/
+.ipynb_checkpoints/
+feature_extraction_data.xlsx
+feature_extraction_data_OLD.xlsx
+feature_extraction_data - Copy.xlsx
+*.nii
+*.nii.gz
+*.dcm
+feature_extraction_OLD.py
+dataset_extract_features.py
+featre_extraction_data.py
+feature_extraction_test.py
+run_feature_extraction_OLD.py
+run_feature_extraction_PLC_CECT.py
+run_feature_extraction_UCSF_RMaC.py
+run_feature_extraction_VinDr.py
+run_feature_extraction_WAW_TACE.py
+
