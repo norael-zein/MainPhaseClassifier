@@ -17,7 +17,15 @@ from feature_extractor import extract_features, calculate_feature_differences
 from totalsegmentator.map_to_binary import class_map
 
 
-ORGANS = ["aorta","portal_vein_and_splenic_vein","urinary_bladder","kidney_right","kidney_left","spleen","liver",]
+ORGANS = [
+    "aorta",
+    "portal_vein_and_splenic_vein",
+    "urinary_bladder",
+    "kidney_right",
+    "kidney_left",
+    "spleen",
+    "liver",
+]
 
 FEATURE_KEYS = {
     "Mean": "original_firstorder_Mean",
@@ -37,6 +45,21 @@ FEATURE_KEYS = {
     "GLCM_JointEntropy": "original_glcm_JointEntropy",
     "GLSZM_ZoneVariance": "original_glszm_ZoneVariance",
 }
+
+
+def read_ct_image(input_data):
+    if os.path.isdir(input_data):
+        reader = sitk.ImageSeriesReader()
+        dicom_names = reader.GetGDCMSeriesFileNames(input_data)
+
+        if len(dicom_names) == 0:
+            raise ValueError(f"No DICOM files found in folder: {input_data}")
+
+        reader.SetFileNames(dicom_names)
+        return reader.Execute()
+
+    return sitk.ReadImage(input_data)
+
 
 def combine_kidneys(right_features, left_features):
     kidneys = {}
@@ -95,25 +118,36 @@ def nibabel_mask_to_sitk(mask_np, reference_sitk):
 
 def pipeline(input_data, output_path):
     os.makedirs(output_path, exist_ok=True)
-    seg_img = segment_selected_organs(input_data=input_data,organs=ORGANS,)
-    image_for_features = sitk.ReadImage(input_data)
-    image_np = sitk.GetArrayFromImage(image_for_features)
 
-    #Clip HU values -200 to 200
+    seg_img = segment_selected_organs(
+        input_data=input_data,
+        organs=ORGANS,
+    )
+
+    original_image = read_ct_image(input_data)
+
+    image_np = sitk.GetArrayFromImage(original_image)
+
+    # Clip HU values to match training preprocessing
     image_np = np.clip(image_np, -200, 200)
 
-    #Back to SimpleITK
     image_for_features = sitk.GetImageFromArray(image_np)
-    image_for_features.CopyInformation(sitk.ReadImage(input_data))
+    image_for_features.CopyInformation(original_image)
+
     seg_data = np.asanyarray(seg_img.dataobj)
+
     task_class_map = class_map["total"]
-    organ_to_label = {organ_name: label_id for label_id, organ_name in task_class_map.items()}
+    organ_to_label = {
+        organ_name: label_id
+        for label_id, organ_name in task_class_map.items()
+    }
+
     selected_features = list(set(FEATURE_KEYS.values()))
     organ_features = {}
 
     for organ in ORGANS:
         if organ not in organ_to_label:
-            print(f"Varning: {organ} finns inte i TotalSegmentator class_map")
+            print(f"Varning: {organ} finns inte i class_map")
             continue
 
         label_id = organ_to_label[organ]
@@ -124,15 +158,30 @@ def pipeline(input_data, output_path):
             continue
 
         mask_sitk = nibabel_mask_to_sitk(mask_np, image_for_features)
-        organ_features[organ] = extract_features(image_input=image_for_features,mask_input=mask_sitk,selected_features=selected_features,)
+
+        organ_features[organ] = extract_features(
+            image_input=image_for_features,
+            mask_input=mask_sitk,
+            selected_features=selected_features,
+        )
 
     if "kidney_right" in organ_features and "kidney_left" in organ_features:
-        organ_features["kidneys"] = combine_kidneys(organ_features["kidney_right"],organ_features["kidney_left"],)
+        organ_features["kidneys"] = combine_kidneys(
+            organ_features["kidney_right"],
+            organ_features["kidney_left"],
+        )
 
     differences = calculate_feature_differences(organ_features)
     final = {}
 
-    for organ in ["aorta","kidneys","liver","portal_vein_and_splenic_vein","spleen","urinary_bladder",]:
+    for organ in [
+        "aorta",
+        "kidneys",
+        "liver",
+        "portal_vein_and_splenic_vein",
+        "spleen",
+        "urinary_bladder",
+    ]:
         add_feature(final, organ_features, f"Mean_{organ}", "Mean", organ)
         add_feature(final, organ_features, f"Standard Deviation_{organ}", "Standard Deviation", organ)
         add_feature(final, organ_features, f"10th Percentile_{organ}", "10th Percentile", organ)
@@ -181,13 +230,14 @@ def pipeline(input_data, output_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run CTPhaseClassification Pipeline")
 
-    parser.add_argument("--input", required=True, help="Path to input CT NIfTI file")
+    parser.add_argument("--input", required=True, help="Path to input CT NIfTI file or DICOM folder")
     parser.add_argument("--output", required=True, help="Output folder")
-    parser.add_argument("--model", default="final_model.pkl", help="Path to saved model")
-    parser.add_argument("--features", default="features.pkl", help="Path to saved feature list")
-    parser.add_argument("--label_encoder", default="label_encoder.pkl", help="Path to saved label encoder")
+    parser.add_argument("--model", default="final_model.pkl")
+    parser.add_argument("--features", default="features.pkl")
+    parser.add_argument("--label_encoder", default="label_encoder.pkl")
 
     args = parser.parse_args()
+
     features = pipeline(args.input, args.output)
 
     print("\n=== FINAL FEATURES ===")
@@ -197,6 +247,7 @@ if __name__ == "__main__":
     model = joblib.load(args.model)
     selected_feature_names = joblib.load(args.features)
     label_encoder = joblib.load(args.label_encoder)
+
     X_new = pd.DataFrame([features])
 
     missing_features = []
@@ -216,8 +267,8 @@ if __name__ == "__main__":
     X_new = X_new.fillna(-9999)
     X_new = X_new[selected_feature_names]
 
-    y_pred_enc = model.predict(X_new)
-    y_pred_label = label_encoder.inverse_transform(y_pred_enc)
+    y_pred = model.predict(X_new)
+    y_label = label_encoder.inverse_transform(y_pred)
 
     print("\n=== PREDICTION ===")
-    print("Predicted class:", y_pred_label[0])
+    print("Predicted class:", y_label[0])
