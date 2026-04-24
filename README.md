@@ -2,7 +2,7 @@
 
 This project provides a full pipeline for automatic CT phase classification using organ segmentation, radiomics feature extraction, and a trained machine learning model.
 
-![Pipeline overview](images/pipeline.png)
+![Pipeline overview](pipeline.png)
 
 The pipeline uses the TotalSegmentator framework (Wasserthal et al. 2023) to segment the following organs:
 
