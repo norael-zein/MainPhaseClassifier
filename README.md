@@ -43,10 +43,9 @@ pip install -r requirements.txt
 
 ### 2. Run the pipeline
 ```bash
-python pipeline.py --input "input_path" --output "output_folder"
+python simple_phase_pipeline.py "input_path" 
 ```
-The input_path could either be a DICOM file or NiFTI file. 
-
+The input_path could either be in a DICOM format or NiFTI format. 
 
 ## References
 
