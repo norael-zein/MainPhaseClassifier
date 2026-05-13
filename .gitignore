@@ -41,3 +41,12 @@ shap_summary_AP_XGBoost_top10.png
 shap_summary_DP_XGboost_top10.png
 shap_summary_NP_XGboost_top10.png
 shap_summary_VP_XGboost_top10.png
+~$predictions_KI.xlsx
+mcnemar_results_internal_datasetB.csv
+mcnemar_results_internal_datasetB.xlsx
+roc_auc_exteral_XGBoost_styled.pdf
+roc_auc_internal_XGBoost_styled.pdf
+roc_auc_internal_XGBoost_styled.png
+roc_auc_external_XGBoost_styled.png
+show_mask_image.py
+roc_auc_external_XGBoost_styled.pdf
